@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -17,9 +18,10 @@ type echoResponse struct {
 	Headers     map[string][]string `json:"headers"`
 	RemoteAddr  string              `json:"remoteAddr"`
 
-	ServerHostname string    `json:"serverHostname"`
-	ServerIP       string    `json:"serverIP"`
-	DateTime       time.Time `json:"dateTime"`
+	ServerHostname string            `json:"serverHostname"`
+	ServerIP       string            `json:"serverIP"`
+	ServerEnv      map[string]string `json:"serverEnv"`
+	DateTime       time.Time         `json:"dateTime"`
 }
 
 func main() {
@@ -27,6 +29,14 @@ func main() {
 	conn, _ := net.Dial("udp", "8.8.8.8:80")
 	defer conn.Close()
 	ipAddress := conn.LocalAddr().String()
+
+	serverEnv := map[string]string{}
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "ECHO_") {
+			parts := strings.Split(env, "=")
+			serverEnv[strings.TrimPrefix(parts[0], "ECHO_")] = parts[1]
+		}
+	}
 
 	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		resp := echoResponse{
@@ -38,6 +48,7 @@ func main() {
 			RemoteAddr:     r.RemoteAddr,
 			ServerHostname: hostname,
 			ServerIP:       ipAddress,
+			ServerEnv:      serverEnv,
 			DateTime:       time.Now(),
 		}
 
